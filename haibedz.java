@@ -1,9 +1,3 @@
-- 👋 I'm interested in Coding
-- 🌱 Currently I am studying at NguyenDu Secondary School
-- 💞️ I want to cooperate with you
-- 📫 Please contact me via Facebook: https://www.facebook.com/HuuTrunggdeptrais1tg
-- 👉 Nhớ Lưu Code Và Tạo Thành File Có Đuôi Là .js
-#Code
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
