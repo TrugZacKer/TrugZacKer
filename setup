@@ -1,5 +1,5 @@
 #setup
-git clone https://github.com/TrugZacKer/TrugZacKer/blob/main/DDoS%20Js
-cd DDoS%20Js
+git clone https://github.com/TrugZacKer/TrugZacKer/blob/main/haibedz.java
+cd haibedz
 ls
-node DDoS%20Js.js [url] [time]
+java haibedz.java
