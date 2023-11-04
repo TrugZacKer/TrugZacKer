@@ -1,0 +1,5 @@
+#setup
+git clone https://github.com/TrugZacKer/TrugZacKer/blob/main/DDoS%20Js
+cd DDoS%20Js
+ls
+node DDoS%20Js.js [url] [time]
